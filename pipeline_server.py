@@ -55,6 +55,10 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
 TABLE        = "songs"
 
+# Path to Netscape-format cookies.txt — upload to HF Space repo as /app/cookies.txt
+# Override via env var COOKIES_PATH if stored elsewhere
+COOKIES_PATH = os.environ.get("COOKIES_PATH", "/app/cookies.txt")
+
 
 # ── Supabase REST helpers ─────────────────────────────────────────────────────
 def _sb_headers():
@@ -174,6 +178,10 @@ def download_audio(song: str, artist: str, out_dir: str) -> str:
             "preferredquality": "192",
         }],
     }
+
+    # Inject cookies if file exists — required on server IPs blocked by YouTube
+    if os.path.isfile(COOKIES_PATH):
+        ydl_opts["cookiefile"] = COOKIES_PATH
     query = f"{artist} {song} official audio"
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         ydl.extract_info(f"ytsearch1:{query}", download=True)
@@ -369,6 +377,7 @@ def health():
         "status":    "ok",
         "supabase":  "connected" if (SUPABASE_URL and SUPABASE_KEY) else "not configured",
         "hf_model":  HF_PREDICT_URL,
+        "cookies":   "found" if os.path.isfile(COOKIES_PATH) else "missing — YouTube will likely block downloads",
     }
 
 
