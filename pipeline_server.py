@@ -177,11 +177,25 @@ def download_audio(song: str, artist: str, out_dir: str) -> str:
             "preferredcodec":   "mp3",
             "preferredquality": "192",
         }],
+        # HF Spaces datacenter SSL & network hardening
+        "nocheckcertificate":  True,
+        "legacyserverconnect": True,
+        "retries":             10,
+        "fragment_retries":    10,
+        "socket_timeout":      30,
+        "http_headers": {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/124.0.0.0 Safari/537.36"
+            ),
+        },
     }
 
-    # Inject cookies if file exists — required on server IPs blocked by YouTube
+    # Inject cookies if file exists
     if os.path.isfile(COOKIES_PATH):
         ydl_opts["cookiefile"] = COOKIES_PATH
+
     query = f"{artist} {song} official audio"
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         ydl.extract_info(f"ytsearch1:{query}", download=True)
