@@ -23,8 +23,25 @@ import time
 import warnings
 warnings.filterwarnings("ignore")
 
+import ssl
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+# ── Global SSL patch — fixes UNEXPECTED_EOF_WHILE_READING on HF Spaces ───────
+# HF datacenter TLS stack triggers EOF on strict TLS 1.3 handshakes.
+# Force TLS 1.2 + disable hostname/cert checks globally for yt-dlp internals.
+_orig_ssl_context = ssl.create_default_context
+
+def _patched_ssl_context(*args, **kwargs):
+    ctx = _orig_ssl_context(*args, **kwargs)
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+    ctx.maximum_version = ssl.TLSVersion.TLSv1_2
+    ctx.set_ciphers("DEFAULT:@SECLEVEL=1")
+    return ctx
+
+ssl.create_default_context = _patched_ssl_context
 
 import numpy as np
 import requests
@@ -200,8 +217,20 @@ def download_audio(song: str, artist: str, out_dir: str) -> str:
         ydl_opts["cookiefile"] = COOKIES_PATH
 
     query = f"{artist} {song} official audio"
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        ydl.extract_info(f"ytsearch1:{query}", download=True)
+
+    # Retry up to 3 times — SSL EOF errors are often transient on HF Spaces
+    last_err = None
+    for attempt in range(3):
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.extract_info(f"ytsearch1:{query}", download=True)
+            break   # success
+        except Exception as e:
+            last_err = e
+            if attempt < 2:
+                time.sleep(3 * (attempt + 1))   # 3s, 6s
+            else:
+                raise RuntimeError(f"yt-dlp failed after 3 attempts: {last_err}")
 
     for fname in os.listdir(out_dir):
         if fname.endswith(".mp3"):
