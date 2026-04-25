@@ -23,6 +23,9 @@ import time
 import warnings
 warnings.filterwarnings("ignore")
 
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 import numpy as np
 import requests
 import uvicorn
@@ -300,9 +303,27 @@ def fetch_lyrics(song: str, artist: str) -> str:
 
 def call_hf_predict(lyrics: str, audio_features: list, domain: int) -> dict:
     payload = {"lyrics": lyrics, "audio_features": audio_features, "domain": domain}
-    r = requests.post(HF_PREDICT_URL, json=payload, timeout=120)
-    r.raise_for_status()
-    return r.json()
+
+    # Retry up to 3 times — HF Space SSL connections can drop intermittently
+    last_err = None
+    for attempt in range(3):
+        try:
+            r = requests.post(
+                HF_PREDICT_URL,
+                json=payload,
+                timeout=180,
+                verify=False,          # bypass SSL cert issues on HF datacenter
+            )
+            r.raise_for_status()
+            return r.json()
+        except requests.exceptions.SSLError as e:
+            last_err = e
+            time.sleep(2 ** attempt)   # 1s, 2s, 4s back-off
+        except requests.exceptions.ConnectionError as e:
+            last_err = e
+            time.sleep(2 ** attempt)
+
+    raise RuntimeError(f"HF predict failed after 3 attempts: {last_err}")
 
 
 # ── API routes ────────────────────────────────────────────────────────────────
