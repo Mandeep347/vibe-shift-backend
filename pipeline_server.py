@@ -229,8 +229,8 @@ def download_audio(song: str, artist: str, out_dir: str) -> str:
         # ── HF Spaces SSL & network hardening ─────────────────────────
         "nocheckcertificate":  True,
         "legacyserverconnect": True,
-        "retries":             10,
-        "fragment_retries":    10,
+        "retries":             1,
+        "fragment_retries":    1,
         "socket_timeout":      30,
         "http_headers": {
             "User-Agent": (
@@ -246,7 +246,7 @@ def download_audio(song: str, artist: str, out_dir: str) -> str:
 
     # Retry loop — SSL EOF errors are often transient
     last_err = None
-    for attempt in range(3):
+    for attempt in range(1):
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info     = ydl.extract_info(f"ytsearch1:{query}", download=True)

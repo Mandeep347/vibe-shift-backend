@@ -12,6 +12,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY pipeline_server.py .
 COPY utils.py .
+COPY fallback.txt .
 
 # cookies.txt — Netscape format, exported from your browser.
 # Export instructions: see README.md → Step 0.
