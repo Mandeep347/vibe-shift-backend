@@ -454,11 +454,13 @@ async def run_pipeline(req: PredictRequest):
     # ── 1. Supabase cache check — return instantly if found ───────────────────
     cached = sb_get_song(req.song, req.artist, req.domain)
     if cached:
+        cached_valence = cached["valence"]
+        better_songs   = sb_get_better_songs(cached_valence, req.domain)
         return PredictResponse(
             song=cached.get("song_display", cached["song"]),
             artist=cached.get("artist_display", cached["artist"]),
             domain=cached["domain"],
-            valence=cached["valence"],
+            valence=cached_valence,
             confidence=cached["confidence"],
             valence_zscore=cached["valence_zscore"],
             latency_ms=int((time.time() - total_start) * 1000),
@@ -533,20 +535,10 @@ async def run_pipeline(req: PredictRequest):
 # ── Playlist endpoint ─────────────────────────────────────────────────────────
 @app.get("/playlist")
 def get_playlist(
-    domain:  Optional[int]   = Query(default=None,  description="0=English, 1=Hindi. Omit for all."),
-    valence: Optional[float] = Query(default=None,  description="Seed valence. Returns up to 10 songs with valence >= this value."),
-    limit:   int             = Query(default=10,    description="Max songs to return (default 10)."),
+    domain: Optional[int] = Query(default=None, description="0=English, 1=Hindi. Omit for all.")
 ):
-    """
-    Returns up to `limit` songs sorted by valence ascending.
-    If `valence` is given, only songs with valence >= that value are returned
-    (mood journey from seed upward). Otherwise returns all songs.
-    """
-    if valence is not None:
-        songs = sb_get_better_songs(valence=valence, domain=domain, limit=limit)
-    else:
-        songs = sb_get_playlist(domain)
-
+    """All songs from DB sorted by valence ascending."""
+    songs = sb_get_playlist(domain)
     for s in songs:
         s["song"]   = s.get("song_display")   or s["song"]
         s["artist"] = s.get("artist_display") or s["artist"]
