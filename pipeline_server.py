@@ -152,6 +152,35 @@ def sb_get_playlist(domain: Optional[int] = None):
         pass
     return []
 
+def sb_get_better_songs(valence: float, domain: Optional[int] = None, limit: int = 10):
+    if not SUPABASE_URL:
+        return []
+
+    params = {
+        "valence": f"gt.{valence}",   # STRICTLY greater than
+        "order": "valence.asc",       # closest higher first
+        "limit": str(limit),
+        "select": "*",
+    }
+
+    if domain is not None:
+        params["domain"] = f"eq.{domain}"
+
+    try:
+        r = requests.get(
+            f"{SUPABASE_URL}/rest/v1/{TABLE}",
+            headers=_sb_headers(),
+            params=params,
+            timeout=10,
+            verify=False,
+        )
+        if r.status_code == 200:
+            return r.json()
+    except Exception:
+        pass
+
+    return []
+
 
 # ── FastAPI app ───────────────────────────────────────────────────────────────
 app = FastAPI(
@@ -186,6 +215,7 @@ class PredictResponse(BaseModel):
     lyrics_chars:   int
     from_hf:        bool
     from_cache:     bool
+    recommendation: list = []
 
 
 # ── Step 1: Download audio ────────────────────────────────────────────────────
@@ -436,6 +466,7 @@ async def run_pipeline(req: PredictRequest):
             lyrics_chars=cached.get("lyrics_chars", 0),
             from_hf=True,
             from_cache=True,
+            recommendation=better_songs
         )
 
     # ── 2. Full pipeline ──────────────────────────────────────────────────────
@@ -459,6 +490,9 @@ async def run_pipeline(req: PredictRequest):
 
         # Original valence override logic preserved exactly
         final_valence = cl if cl < 1 else hf_result["valence"]
+
+        # Get only better valence songs to uplift mood
+        better_songs = sb_get_better_songs(final_valence, req.domain)
 
         # ── 3. Save to Supabase ───────────────────────────────────────────────
         sb_insert_song({
@@ -499,10 +533,20 @@ async def run_pipeline(req: PredictRequest):
 # ── Playlist endpoint ─────────────────────────────────────────────────────────
 @app.get("/playlist")
 def get_playlist(
-    domain: Optional[int] = Query(default=None, description="0=English, 1=Hindi. Omit for all.")
+    domain:  Optional[int]   = Query(default=None,  description="0=English, 1=Hindi. Omit for all."),
+    valence: Optional[float] = Query(default=None,  description="Seed valence. Returns up to 10 songs with valence >= this value."),
+    limit:   int             = Query(default=10,    description="Max songs to return (default 10)."),
 ):
-    """All songs from DB sorted by valence ascending."""
-    songs = sb_get_playlist(domain)
+    """
+    Returns up to `limit` songs sorted by valence ascending.
+    If `valence` is given, only songs with valence >= that value are returned
+    (mood journey from seed upward). Otherwise returns all songs.
+    """
+    if valence is not None:
+        songs = sb_get_better_songs(valence=valence, domain=domain, limit=limit)
+    else:
+        songs = sb_get_playlist(domain)
+
     for s in songs:
         s["song"]   = s.get("song_display")   or s["song"]
         s["artist"] = s.get("artist_display") or s["artist"]
