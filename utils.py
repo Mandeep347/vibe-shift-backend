@@ -9,6 +9,7 @@ def to_float_or_default(s):
         return float(s)
     except (ValueError, TypeError):
         return 1.2
+    
 
 def format_text(song: str, artist: str):
     prompt = f"Provide a sentiment score for the song “{song}” by {artist} based on its lyrics and musical features. Use a scale from 0 to 1, where 0 represents very sad and 1 represents very happy. Return only the numeric value with no additional text."
