@@ -1,10 +1,10 @@
-# Moodshift Pipeline Server
+# Vive-Shift Pipeline Server
 
 AI-powered multimodal music mood analysis pipeline built with FastAPI. The system combines audio signal processing, lyrics analysis, LLM-assisted sentiment estimation, and a Hugging Face prediction service to estimate the emotional valence of songs and recommend mood-improving tracks.
 
 ## Overview
 
-Moodshift is a backend inference pipeline that:
+Vibe-Shift is a backend inference pipeline that:
 
 * Downloads and processes song audio from YouTube
 * Extracts audio features using Librosa
