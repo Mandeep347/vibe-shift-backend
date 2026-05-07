@@ -514,4 +514,9 @@ Add your preferred open-source license if distributing publicly.
 
 # Author
 
-Developed by Mandeep.
+Developed by:
+Mandeep Chauhan
+Deepanshi Kashyap
+Aakanksha
+Shobha Kumari
+ - at NITRA Technical Campus, Ghaziabad
